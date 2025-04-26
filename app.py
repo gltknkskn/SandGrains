@@ -13,43 +13,56 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="SandGrains - Life Expectancy", page_icon="⏳")
+st.set_page_config(page_title="SandGrains", layout="wide", page_icon="⏳")
 
 # -------------------------------------------
 # Auth Functions
 # -------------------------------------------
 
 def signup(email, password):
-    result = supabase.auth.sign_up({"email": email, "password": password})
-    return result
+    return supabase.auth.sign_up({"email": email, "password": password})
 
 def login(email, password):
-    result = supabase.auth.sign_in_with_password({"email": email, "password": password})
-    return result
+    return supabase.auth.sign_in_with_password({"email": email, "password": password})
 
 # -------------------------------------------
-# UI: Auth
+# UI: Landing + Auth
 # -------------------------------------------
-
-st.title("⏳ SandGrains - Life Expectancy Calculator")
-
-st.markdown("""
-This application is **completely free to use**.
-
-**Purpose:**  
-Estimate your remaining life expectancy in seconds,  
-encourage healthy habits,  
-and teach the true value of time.
-""")
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
 if st.session_state.user is None:
+    # Landing screen
+    st.markdown(
+        """
+        <div style='text-align: center; padding: 2rem 1rem;'>
+            <img src='https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Hourglass_animation.gif/120px-Hourglass_animation.gif'
+                 style='width:120px; height:auto; margin-bottom: 1rem;' />
+            <h1 style='font-size: 2.5rem; margin-bottom: 0.5rem;'>Welcome to <span style="color:#E94E77;">SandGrains</span></h1>
+            <p style='font-size: 1.1rem; max-width: 700px; margin: auto; color: #CCCCCC;'>
+                Discover how much time you may have left — in seconds.<br>
+                Build healthier habits and learn to live with intention.<br><br>
+                This app is <strong>completely free</strong>. Just sign up or log in to get started.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Auth form
+    st.write(" ")
     auth_mode = st.radio("Choose action", ["Login", "Sign Up"], horizontal=True)
 
-    email = st.text_input("Email address")
-    password = st.text_input("Password", type="password")
+    col1, col2 = st.columns([3, 3])
+    with col1:
+        email = st.text_input("Email address")
+    with col2:
+        password = st.text_input(
+            "Password",
+            type="password",
+            help="Must include lowercase, uppercase, number, and symbol."
+        )
 
     if st.button("Submit"):
         if not email or not password:
