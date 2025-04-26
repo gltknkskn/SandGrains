@@ -3,8 +3,8 @@ import requests
 from supabase import create_client, Client
 from datetime import datetime
 import os
-from dotenv import load_dotenv
 import json
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -13,7 +13,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="SandGrains - Auth Demo", page_icon="⏳")
+st.set_page_config(page_title="SandGrains - Life Expectancy", page_icon="⏳")
 
 # -------------------------------------------
 # Auth Functions
@@ -31,7 +31,16 @@ def login(email, password):
 # UI: Auth
 # -------------------------------------------
 
-st.title("⏳ SandGrains - Life Expectancy with Login")
+st.title("⏳ SandGrains - Life Expectancy Calculator")
+
+st.markdown("""
+This application is **completely free to use**.
+
+**Purpose:**  
+Estimate your remaining life expectancy in seconds,  
+encourage healthy habits,  
+and teach the true value of time.
+""")
 
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -39,7 +48,7 @@ if "user" not in st.session_state:
 if st.session_state.user is None:
     auth_mode = st.radio("Choose action", ["Login", "Sign Up"], horizontal=True)
 
-    email = st.text_input("Email")
+    email = st.text_input("Email address")
     password = st.text_input("Password", type="password")
 
     if st.button("Submit"):
