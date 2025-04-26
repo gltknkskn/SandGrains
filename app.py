@@ -21,9 +21,12 @@ def get_life_expectancy(country_code):
     try:
         response = requests.get(url)
         data = response.json()
-        return data[1][0]["value"]
+        if data and len(data) > 1 and isinstance(data[1], list) and len(data[1]) > 0:
+            return data[1][0]["value"]
+        else:
+            return 75  # Default value if not found
     except Exception:
-        return 75  # Default value if API call fails
+        return 75  # Default value if request fails
 
 # Streamlit page
 st.set_page_config(page_title="SandGrains - Life Expectancy", page_icon="⏳")
@@ -48,6 +51,11 @@ if st.button("Calculate & Save"):
 
     # Fetch base life expectancy
     base_expectancy = get_life_expectancy(country_code)
+
+    # Check if base_expectancy was found
+    if base_expectancy is None:
+        st.error("Unable to retrieve life expectancy data. Please check the country code.")
+        st.stop()
 
     # Lifestyle factor scoring
     factor_score = 0
