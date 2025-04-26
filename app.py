@@ -4,6 +4,7 @@ from supabase import create_client
 import uuid
 from datetime import datetime
 import os
+import json
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -69,18 +70,20 @@ if st.button("Calculate & Save"):
 
     st.success(f"Your estimated remaining life: {remaining_years:.2f} years ({remaining_seconds:,} seconds)")
 
+    # Prepare data with correct formats
     data = {
         "user_id": str(uuid.uuid5(uuid.NAMESPACE_DNS, user_identifier)),
-        "age": age,
+        "age": int(age),
         "country_code": country_code,
-        "locations": [],
-        "lifestyle": {"smoking": smoking, "exercise": exercise},
-        "genetic_factors": {},
-        "expectancy_years": final_expectancy,
-        "remaining_seconds": remaining_seconds,
+        "locations": json.dumps([]),
+        "lifestyle": json.dumps({"smoking": smoking, "exercise": exercise}),
+        "genetic_factors": json.dumps({}),
+        "expectancy_years": float(final_expectancy),
+        "remaining_seconds": int(remaining_seconds),
         "updated_at": datetime.utcnow().isoformat()
     }
 
+    # Check if the user already exists
     existing = supabase.table("user_life_expectancy").select("*").eq("user_id", data["user_id"]).execute()
 
     if existing.data:
