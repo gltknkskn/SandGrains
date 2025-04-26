@@ -32,65 +32,61 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 if st.session_state.user is None:
-    # — Centered card style —
-    container = st.container()
-    with container:
+    # — Card Container —
+    with st.container():
+        st.markdown("<div style='max-width:800px; margin:auto; padding:2rem; background-color:#1e1e1e; border-radius:12px;'>", unsafe_allow_html=True)
+        col1, col2 = st.columns([1,2], gap="small")
+        with col1:
+            st.image(
+                "https://upload.wikimedia.org/wikipedia/commons/3/3e/Hourglass_icon.svg",
+                width=100,
+                caption=None
+            )
+        with col2:
+            st.markdown(
+                """
+                <h1 style='color:white; margin-bottom:0.2rem;'>Welcome to <span style="color:#E94E77;">SandGrains</span></h1>
+                <p style='color:#BBBBBB; font-size:1rem; margin-top:0;'>
+                  See your remaining time—in seconds—and get inspired to live healthier.<br>
+                  Track your habits, take control of your days.
+                </p>
+                """,
+                unsafe_allow_html=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # — Compact Inputs & Continue —
+        with st.container():
+            c1, c2, c3 = st.columns([2,2,1], gap="small")
+            with c1:
+                email = st.text_input("Email address", key="email")
+            with c2:
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    help="Must be ≥9 chars & include lowercase, uppercase, number & symbol.",
+                    key="password"
+                )
+            with c3:
+                if st.button("Continue", key="cont"):
+                    if not email or not password:
+                        st.warning("Email and password required.")
+                    elif len(password) < 9:
+                        st.error("Password must be at least 9 characters.")
+                    else:
+                        try:
+                            res = login_or_signup(email, password)
+                            st.session_state.user = res.user
+                            st.rerun()
+                        except Exception:
+                            st.error("Login/Signup failed. Check your credentials.")
+        # — Free note —
         st.markdown(
-            """
-            <div style='max-width:800px; margin:auto; padding:2rem; background-color:#1e1e1e; border-radius:10px;'>
-              <div style='display:flex; align-items:center;'>
-                <img src='https://upload.wikimedia.org/wikipedia/commons/e/e1/Hourglass_animation.gif'
-                     style='width:100px; margin-right:1.5rem;'/>
-                <div>
-                  <h1 style='color:white; margin:0;'>Welcome to <span style="color:#E94E77;">SandGrains</span></h1>
-                  <p style='color:#BBBBBB; font-size:1rem; margin:0.5rem 0 0;'>
-                    See your remaining time—in seconds—and get inspired to live healthier.<br>
-                    Track your habits, take control of your days.
-                  </p>
-                </div>
-              </div>
-              <div style='margin-top:2rem;'>
-                <div style='display:flex; gap:1rem;'>
-                  <input id='email_input' type='text' placeholder='Email address'
-                         style='flex:2; padding:0.5rem; border-radius:5px; border:none; background:#2a2a2a; color:white;' />
-                  <input id='pw_input' type='password' placeholder='Password'
-                         title='Must be ≥9 chars & include lowercase, uppercase, number & symbol'
-                         style='flex:2; padding:0.5rem; border-radius:5px; border:none; background:#2a2a2a; color:white;' />
-                </div>
-                <div style='text-align:center; margin-top:1rem;'>
-                  <button id='continue_btn'
-                          style='padding:0.6rem 1.2rem; border:none; border-radius:5px;
-                                 background:#E94E77; color:white; font-size:1rem; cursor:pointer;'>
-                    Continue
-                  </button>
-                </div>
-              </div>
-              <p style='text-align:center; color:#777777; font-size:0.8rem; margin-top:1.5rem;'>
-                This app is completely free. No hidden fees, ever.
-              </p>
-            </div>
-            """,
+            "<div style='text-align:center; color:#777777; font-size:0.85rem; margin-top:1rem;'>"
+            "This app is completely free. No hidden fees, ever."
+            "</div>",
             unsafe_allow_html=True
         )
-
-    # Use Streamlit inputs under the HTML card
-    email = st.text_input("", key="email_hidden", placeholder=" ", label_visibility="collapsed")
-    password = st.text_input("", key="pw_hidden", placeholder=" ", type="password",
-                             help="Must be ≥9 chars & include lowercase, uppercase, number & symbol.",
-                             label_visibility="collapsed")
-    # Continue button
-    if st.button("Continue", key="continue_hidden"):
-        if not email or not password:
-            st.warning("Email and password required.")
-        elif len(password) < 9:
-            st.error("Password must be at least 9 characters.")
-        else:
-            try:
-                res = login_or_signup(email, password)
-                st.session_state.user = res.user
-                st.rerun()
-            except Exception:
-                st.error("Login/Signup failed. Check your credentials.")
     st.stop()
 
 # — FIRST-TIME USER: GET NAME —
@@ -99,9 +95,9 @@ qry = supabase.table("user_life_expectancy").select("*").eq("user_email", user_e
 
 if not qry.data:
     st.info("Hi there! To get started, tell us your name.")
-    fn = st.text_input("First name")
-    ln = st.text_input("Last name")
-    if st.button("Save name"):
+    fn = st.text_input("First name", key="fn")
+    ln = st.text_input("Last name", key="ln")
+    if st.button("Save name", key="save_name"):
         supabase.table("user_life_expectancy").insert({
             "user_email": user_email,
             "first_name": fn,
@@ -118,10 +114,10 @@ st.success(f"Welcome back, {user_rec.get('first_name','Friend')}!")
 st.write("---")
 
 # — HABIT INPUTS —
-age = st.number_input("Your Current Age", 1, 120, 30)
-cc = st.text_input("Country Code (e.g., US, TR, DE)", "US").upper()
-sm = st.selectbox("Smoking habits", ["never","former","current"])
-ex = st.selectbox("Exercise frequency", ["regular","occasional","none"])
+age = st.number_input("Your Current Age", 1, 120, 30, key="age")
+cc = st.text_input("Country Code (e.g., US, TR, DE)", "US", key="cc").upper()
+sm = st.selectbox("Smoking habits", ["never","former","current"], key="sm")
+ex = st.selectbox("Exercise frequency", ["regular","occasional","none"], key="ex")
 
 # — FETCH LIFE EXPECTANCY —
 def get_life_expectancy(country):
@@ -137,7 +133,7 @@ def get_life_expectancy(country):
     except:
         return 75
 
-if st.button("Calculate & Save"):
+if st.button("Calculate & Save", key="calc"):
     base = get_life_expectancy(cc)
     score = (2 if sm=="never" else -5 if sm=="current" else 0) \
           + (3 if ex=="regular" else -3 if ex=="none" else 0)
@@ -167,6 +163,6 @@ if rec.data:
 
 # — LOGOUT BUTTON —
 st.write("---")
-if st.button("Log out"):
+if st.button("Log out", key="logout"):
     st.session_state.user = None
     st.rerun()
