@@ -32,17 +32,19 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 if st.session_state.user is None:
-    # — Card Container —
+    # Card container
     with st.container():
-        st.markdown("<div style='max-width:800px; margin:auto; padding:2rem; background-color:#1e1e1e; border-radius:12px;'>", unsafe_allow_html=True)
-        col1, col2 = st.columns([1,2], gap="small")
-        with col1:
+        st.markdown(
+            "<div style='max-width:800px; margin:auto; padding:2rem; background-color:#1e1e1e; border-radius:12px;'>",
+            unsafe_allow_html=True
+        )
+        img_col, txt_col = st.columns([1,2], gap="medium")
+        with img_col:
             st.image(
-                "https://upload.wikimedia.org/wikipedia/commons/3/3e/Hourglass_icon.svg",
-                width=100,
-                caption=None
+                "https://upload.wikimedia.org/wikipedia/commons/e/e1/Hourglass_animation.gif",
+                width=100
             )
-        with col2:
+        with txt_col:
             st.markdown(
                 """
                 <h1 style='color:white; margin-bottom:0.2rem;'>Welcome to <span style="color:#E94E77;">SandGrains</span></h1>
@@ -55,38 +57,33 @@ if st.session_state.user is None:
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # — Compact Inputs & Continue —
-        with st.container():
-            c1, c2, c3 = st.columns([2,2,1], gap="small")
-            with c1:
-                email = st.text_input("Email address", key="email")
-            with c2:
-                password = st.text_input(
-                    "Password",
-                    type="password",
-                    help="Must be ≥9 chars & include lowercase, uppercase, number & symbol.",
-                    key="password"
-                )
-            with c3:
-                if st.button("Continue", key="cont"):
-                    if not email or not password:
-                        st.warning("Email and password required.")
-                    elif len(password) < 9:
-                        st.error("Password must be at least 9 characters.")
-                    else:
-                        try:
-                            res = login_or_signup(email, password)
-                            st.session_state.user = res.user
-                            st.rerun()
-                        except Exception:
-                            st.error("Login/Signup failed. Check your credentials.")
-        # — Free note —
-        st.markdown(
-            "<div style='text-align:center; color:#777777; font-size:0.85rem; margin-top:1rem;'>"
-            "This app is completely free. No hidden fees, ever."
-            "</div>",
-            unsafe_allow_html=True
-        )
+    # Compact inputs
+    email = st.text_input("Email address")
+    password = st.text_input(
+        "Password",
+        type="password",
+        help="Must be ≥9 chars & include lowercase, uppercase, number & symbol."
+    )
+    if st.button("Continue"):
+        if not email or not password:
+            st.warning("Email and password required.")
+        elif len(password) < 9:
+            st.error("Password must be at least 9 characters.")
+        else:
+            try:
+                res = login_or_signup(email, password)
+                st.session_state.user = res.user
+                st.rerun()
+            except Exception:
+                st.error("Login/Signup failed. Check your credentials.")
+
+    # Free note
+    st.markdown(
+        "<div style='text-align:center; color:#777777; font-size:0.85rem; margin-top:1rem;'>"
+        "This app is completely free. No hidden fees, ever."
+        "</div>",
+        unsafe_allow_html=True
+    )
     st.stop()
 
 # — FIRST-TIME USER: GET NAME —
@@ -95,9 +92,9 @@ qry = supabase.table("user_life_expectancy").select("*").eq("user_email", user_e
 
 if not qry.data:
     st.info("Hi there! To get started, tell us your name.")
-    fn = st.text_input("First name", key="fn")
-    ln = st.text_input("Last name", key="ln")
-    if st.button("Save name", key="save_name"):
+    fn = st.text_input("First name")
+    ln = st.text_input("Last name")
+    if st.button("Save name"):
         supabase.table("user_life_expectancy").insert({
             "user_email": user_email,
             "first_name": fn,
@@ -114,29 +111,30 @@ st.success(f"Welcome back, {user_rec.get('first_name','Friend')}!")
 st.write("---")
 
 # — HABIT INPUTS —
-age = st.number_input("Your Current Age", 1, 120, 30, key="age")
-cc = st.text_input("Country Code (e.g., US, TR, DE)", "US", key="cc").upper()
-sm = st.selectbox("Smoking habits", ["never","former","current"], key="sm")
-ex = st.selectbox("Exercise frequency", ["regular","occasional","none"], key="ex")
+age = st.number_input("Your Current Age", 1, 120, 30)
+cc = st.text_input("Country Code (e.g., US, TR, DE)", "US").upper()
+sm = st.selectbox("Smoking habits", ["never","former","current"])
+ex = st.selectbox("Exercise frequency", ["regular","occasional","none"])
 
 # — FETCH LIFE EXPECTANCY —
 def get_life_expectancy(country):
-    url = f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
+    url = (f"http://api.worldbank.org/v2/country/{country}"
+           "/indicator/SP.DYN.LE00.IN?format=json&per_page=100")
     try:
         r = requests.get(url)
-        data = r.json()
-        if data and len(data)>1:
-            for it in data[1]:
-                if it.get("value") is not None:
+        js = r.json()
+        if js and len(js)>1 and isinstance(js[1], list):
+            for it in js[1]:
+                if it["value"] is not None:
                     return it["value"]
         return 75
     except:
         return 75
 
-if st.button("Calculate & Save", key="calc"):
+if st.button("Calculate & Save"):
     base = get_life_expectancy(cc)
     score = (2 if sm=="never" else -5 if sm=="current" else 0) \
-          + (3 if ex=="regular" else -3 if ex=="none" else 0)
+            + (3 if ex=="regular" else -3 if ex=="none" else 0)
     final = base + score
     rem_y = final - age
     rem_s = int(rem_y * 31536000)
@@ -163,6 +161,6 @@ if rec.data:
 
 # — LOGOUT BUTTON —
 st.write("---")
-if st.button("Log out", key="logout"):
+if st.button("Log out"):
     st.session_state.user = None
     st.rerun()
