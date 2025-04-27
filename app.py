@@ -1,7 +1,5 @@
 import streamlit as st
-import requests
-import json
-import os
+import requests, json, os
 from datetime import datetime
 from supabase import create_client
 from dotenv import load_dotenv
@@ -24,19 +22,16 @@ st.set_page_config(
 # — GLOBAL CSS —
 st.markdown("""
 <style>
-/* Sidebar gradient & fixed width */
 [data-testid="stSidebar"] {
   background: linear-gradient(180deg,#1a1a2e 0%,#26273a 100%);
   padding-top: 1rem;
   width: 220px !important;
 }
-/* Sidebar logo full width */
 [data-testid="stSidebar"] img {
   width: 100% !important;
   height: auto;
   margin-bottom: 0.5rem;
 }
-/* Sidebar title under logo */
 .sidebar-title {
   color: #ffffff;
   font-size: 1.25rem;
@@ -44,11 +39,9 @@ st.markdown("""
   text-align: center;
   margin-bottom: 1rem;
 }
-/* Main area background */
 [data-testid="stAppViewContainer"] {
   background: #0f0f13;
 }
-/* Card style */
 .card {
   background: #1e1e2d;
   padding: 1.5rem;
@@ -56,7 +49,6 @@ st.markdown("""
   margin-bottom: 1.5rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
-/* Button style */
 .stButton>button {
   background-color: #e94e77;
   color: white;
@@ -64,12 +56,11 @@ st.markdown("""
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
 }
-/* Hide default menu/footer */
 #MainMenu, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# — SIDEBAR: logo and title —
+# — SIDEBAR —
 st.sidebar.image("hourglass_logo.png")
 st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
 page = st.sidebar.radio(
@@ -84,26 +75,17 @@ if page == "Logout":
     st.experimental_rerun()
 
 # — AUTH HELPERS —
-def login_with_signup(email, pwd):
-    # attempt sign in first
+def login_or_signup(email, password):
     try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": pwd})
-        return res
-    except Exception:
-        # if sign in fails, try sign up
+        return supabase.auth.sign_in_with_password({"email": email, "password": password})
+    except:
+        # if sign-in fails, attempt sign-up
         try:
-            supabase.auth.sign_up({"email": email, "password": pwd})
+            supabase.auth.sign_up({"email": email, "password": password})
         except Exception:
-            # likely weak password
-            st.error("Password too weak or policy violation. Please choose a stronger password.")
+            st.error("Password too weak or violation—choose a stronger password.")
             return None
-        # after signup, sign in
-        try:
-            res2 = supabase.auth.sign_in_with_password({"email": email, "password": pwd})
-            return res2
-        except Exception:
-            st.error("Signup succeeded but login failed.")
-            return None
+        return supabase.auth.sign_in_with_password({"email": email, "password": password})
 
 # — AUTH FLOW —
 if "user" not in st.session_state or not st.session_state.user:
@@ -114,66 +96,73 @@ if "user" not in st.session_state or not st.session_state.user:
     pwd = st.text_input("Password (≥9 chars)", type="password")
     if st.button("Sign In / Up"):
         if email and len(pwd) >= 9:
-            result = login_with_signup(email, pwd)
-            if result and getattr(result, "user", None):
-                st.session_state.user = result.user
-                st.success("Authenticated! Redirecting…")
-                st.experimental_rerun()
-            elif result is None:
-                # error already shown
-                pass
+            res = login_or_signup(email, pwd)
+            if res and getattr(res, "user", None):
+                st.session_state.user = res.user
+                st.success("Authenticated! You can now use the Calculator.")
             else:
-                st.error("Authentication failed. Please verify your credentials.")
+                st.error("Authentication failed. Check credentials or password policy.")
         else:
-            st.error("Enter a valid email and a password of at least 9 characters.")
+            st.error("Enter a valid email and password of at least 9 characters.")
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# user must be authenticated at this point
+# — USER IS AUTHENTICATED —
 user_email = st.session_state.user.email
 
-# — ENSURE PROFILE EXISTS —
-profiling = supabase.table("user_life_expectancy").select("first_name").eq("user_email", user_email).maybe_single().execute().data
-if not profiling:
+# — PROFILE SETUP ON OTHER PAGES —
+profile = (
+    supabase.table("user_life_expectancy")
+    .select("first_name")
+    .eq("user_email", user_email)
+    .maybe_single()
+    .execute()
+    .data
+)
+if not profile and page != "Login":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.header("Welcome! What’s your name?")
     fn = st.text_input("First name")
-    if st.button("Save"):
+    if st.button("Save Name"):
         supabase.table("user_life_expectancy").insert({
             "user_email": user_email,
             "first_name": fn,
             "updated_at": datetime.utcnow().isoformat()
         }).execute()
-        st.success("Name saved! Redirecting…")
-        st.experimental_rerun()
+        st.success("Name saved! Proceed to Calculator.")
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-first_name = profiling["first_name"]
+# Automatically redirect authenticated user away from Login
+if page == "Login":
+    page = "Calculator"
 
-# — CARD WRAPPER —
-def card(title, content_fn):
+first_name = profile["first_name"]
+
+# — CARD UTILITY —
+def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
-    content_fn()
+    fn()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# — CALCULATOR —
+# — CALCULATOR PAGE —
 if page == "Calculator":
-    def calc_box():
+    def calc_ui():
         age = st.number_input("Age", 1, 120, 30)
         country = st.text_input("Country Code (US,TR,DE…)", "US").upper()
         smoke = st.selectbox("Smoking", ["never", "former", "current"])
         exer = st.selectbox("Exercise", ["regular", "occasional", "none"])
-        if st.button("Compute"):
+        if st.button("Compute"):            
             try:
-                w = requests.get(
+                data = requests.get(
                     f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
                 ).json()
-                base = next((i["value"] for i in w[1] if i["value"]), 75)
+                base = next((i["value"] for i in data[1] if i["value"]), 75)
             except:
                 base = 75
-            score = (2 if smoke == "never" else -5 if smoke == "current" else 0) + (3 if exer == "regular" else -3 if exer == "none" else 0)
+            score = (2 if smoke == "never" else -5 if smoke == "current" else 0) + \
+                    (3 if exer == "regular" else -3 if exer == "none" else 0)
             final = base + score
             rem_y = final - age
             rem_s = int(rem_y * 31536000)
@@ -188,35 +177,38 @@ if page == "Calculator":
                 "remaining_seconds": rem_s,
                 "updated_at": datetime.utcnow().isoformat()
             }, on_conflict="user_email").execute()
-    card(f"Hello {first_name}, estimate your time left", calc_box)
+    card(f"Hello {first_name}, estimate your time left", calc_ui)
 
 # — CHAT HELPER —
 elif page == "Chat Helper":
-    def chat_box():
+    def chat_ui():
         prompt = st.text_input("Ask for a quick tip (e.g. best exercise tip?)")
         if st.button("Send"):
             if "exercise" in prompt.lower():
                 st.info("Try brisk walking 30 min/day — adds ~3 years!")
             else:
                 st.info("Eat more fruits, veggies & whole grains daily.")
-    card("💬 Quick Health Tips", chat_box)
+    card("💬 Quick Health Tips", chat_ui)
 
 # — HISTORY —
 elif page == "History":
-    def history_box():
-        rows = supabase.table("user_life_expectancy").select("updated_at,remaining_seconds").eq("user_email", user_email).order("updated_at", asc=True).execute().data
+    def hist_ui():
+        rows = supabase.table("user_life_expectancy")\
+            .select("updated_at,remaining_seconds")\
+            .eq("user_email", user_email)\
+            .order("updated_at", asc=True).execute().data
         if rows:
             df = pd.DataFrame(rows)
             df["updated_at"] = pd.to_datetime(df["updated_at"])
             st.line_chart(df.set_index("updated_at")["remaining_seconds"])
         else:
             st.info("No history yet.")
-    card("⏳ Your History", history_box)
+    card("⏳ Your History", hist_ui)
 
 # — SETTINGS —
 elif page == "Settings":
-    def settings_box():
+    def set_ui():
         if st.button("Clear History"):
             supabase.table("user_life_expectancy").delete().eq("user_email", user_email).execute()
             st.success("History cleared.")
-    card("⚙️ Settings", settings_box)
+    card("⚙️ Settings", set_ui)
