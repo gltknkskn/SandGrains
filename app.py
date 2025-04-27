@@ -16,25 +16,31 @@ st.set_page_config(
     page_title="SandGrains",
     page_icon="⏳",
     layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        "Get help": "https://github.com/your-repo",
-        "Report a bug": "https://github.com/your-repo/issues"
-    }
+    initial_sidebar_state="expanded"
 )
 
-# — GLOBAL CSS —  
+# — GLOBAL CSS —
 st.markdown("""
 <style>
-/* Sidebar gradient background */
+/* Sidebar gradient & width */
 [data-testid="stSidebar"] {
-  background: linear-gradient(180deg,#1a1a2e 0%,#26273a 100%);
-  padding-top: 2rem;
+  background: linear-gradient(180deg, #1a1a2e 0%, #26273a 100%);
+  padding-top: 1rem;
+  width: 220px !important;
 }
-/* Sidebar logo spacing */
+/* Sidebar logo full width */
 [data-testid="stSidebar"] img {
-  margin: 0 auto 1.5rem auto;
-  display: block;
+  width: 100% !important;
+  height: auto;
+  margin-bottom: 1rem;
+}
+/* Title under logo */
+.sidebar-title {
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 1rem;
 }
 /* Main area background */
 [data-testid="stAppViewContainer"] {
@@ -61,20 +67,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# — SIDEBAR —  
-st.sidebar.image("hourglass_logo.png", width=200)
+# — SIDEBAR —
+st.sidebar.image("hourglass_logo.png")
+st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
 page = st.sidebar.radio(
     "Navigation",
-    ["Calculator", "Chat Helper", "History", "Settings", "Logout"],
+    ["Login", "Calculator", "Chat Helper", "History", "Settings", "Logout"],
     index=0
 )
 
-# — LOGOUT —  
+# — LOGOUT —
 if page == "Logout":
     st.session_state.clear()
     st.experimental_rerun()
 
-# — AUTH HELPERS —  
+# — AUTH HELPERS —
 def login_or_signup(email, password):
     try:
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -82,14 +89,13 @@ def login_or_signup(email, password):
         supabase.auth.sign_up({"email": email, "password": password})
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
 
-# — AUTH FLOW —  
+# — AUTH FLOW —
 if "user" not in st.session_state or not st.session_state.user:
-    # only Login interface
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.header("SandGrains ⏳ Login")
+    st.header("Login")
     st.write("Free life-expectancy calculator. Please sign in or sign up.")
     email = st.text_input("Email")
-    pwd   = st.text_input("Password (≥9 chars)", type="password")
+    pwd = st.text_input("Password (≥9 chars)", type="password")
     if st.button("Sign In / Up"):
         if email and len(pwd) >= 9:
             res = login_or_signup(email, pwd)
@@ -106,7 +112,7 @@ if "user" not in st.session_state or not st.session_state.user:
 
 user_email = st.session_state.user.email
 
-# — ENSURE PROFILE EXISTS —  
+# — ENSURE PROFILE EXISTS —
 prof = (
     supabase.table("user_life_expectancy")
     .select("first_name")
@@ -132,26 +138,24 @@ if not prof:
 
 first_name = prof["first_name"]
 
-# — CARD WRAPPER —  
+# — CARD WRAPPER —
 def card(title, content_fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
     content_fn()
     st.markdown("</div>", unsafe_allow_html=True)
 
-# — CALCULATOR —  
+# — CALCULATOR —
 if page == "Calculator":
     def calc_ui():
         age = st.number_input("Age", 1, 120, 30)
         country = st.text_input("Country Code (US,TR,DE…)", "US").upper()
         smoke = st.selectbox("Smoking", ["never","former","current"])
-        exer  = st.selectbox("Exercise", ["regular","occasional","none"])
+        exer = st.selectbox("Exercise", ["regular","occasional","none"])
         if st.button("Compute"):
-            # fetch base expectancy
             try:
                 data = requests.get(
-                    f"http://api.worldbank.org/v2/country/{country}"
-                    "/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
+                    f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
                 ).json()
                 base = next((i["value"] for i in data[1] if i["value"]), 75)
             except:
@@ -162,7 +166,6 @@ if page == "Calculator":
             rem_y = final - age
             rem_s = int(rem_y * 31536000)
             st.success(f"⏳ {rem_y:.2f} years — {rem_s:,} seconds")
-            # upsert
             supabase.table("user_life_expectancy").upsert({
                 "user_email": user_email,
                 "first_name": first_name,
@@ -175,7 +178,7 @@ if page == "Calculator":
             }, on_conflict="user_email").execute()
     card(f"Hello {first_name}, calculate your time left", calc_ui)
 
-# — CHAT HELPER —  
+# — CHAT HELPER —
 elif page == "Chat Helper":
     def chat_ui():
         prompt = st.text_input("Ask for a quick tip (e.g. best exercise tip?)")
@@ -186,7 +189,7 @@ elif page == "Chat Helper":
                 st.info("Eat more fruits, veggies & whole grains daily.")
     card("💬 Quick Health Tips", chat_ui)
 
-# — HISTORY —  
+# — HISTORY —
 elif page == "History":
     def hist_ui():
         rows = supabase.table("user_life_expectancy")\
@@ -201,7 +204,7 @@ elif page == "History":
             st.info("No history yet.")
     card("⏳ Your History", hist_ui)
 
-# — SETTINGS —  
+# — SETTINGS —
 elif page == "Settings":
     def set_ui():
         if st.button("Clear History"):
