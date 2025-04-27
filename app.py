@@ -18,40 +18,67 @@ st.set_page_config(
     layout="wide",
 )
 
-# — HIDE STREAMLIT UI ELEMENTS & GLOBAL STYLES —
+# — GLOBAL STYLES —
 st.markdown("""
 <style>
-/* 1) Hide the top toolbar/search bar */
-[data-testid="stToolbar"] { display: none !important; }
-/* 2) Remove header placeholders */
-header, header + div { visibility: hidden; height: 0 !important; margin:0; padding:0; }
-/* 3) Hide any text_input with empty aria-label */
-input[aria-label=""] { display: none !important; }
-/* and collapse its container */
-input[aria-label=""] ~ div { height:0 !important; margin:0; padding:0; }
-/* Sidebar */
-[data-testid="stSidebar"] { background: #1a1a2e; width:220px!important; padding-top:1rem; }
-[data-testid="stSidebar"] img { width:100%!important; margin-bottom:1rem; }
-.sidebar-title { color:#fff; text-align:center; font-size:1.25rem; font-weight:bold; margin-bottom:1rem; }
-/* Main background */
-[data-testid="stAppViewContainer"] { background:#0f0f13; }
-/* Cards */
-.card { background:#1e1e2d; padding:1.5rem; border-radius:12px; margin:1rem 0; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
-/* Buttons */
-.stButton>button { background:#e94e77; color:#fff; padding:.6rem 1.2rem; border:none; border-radius:8px; }
-/* Hide Streamlit menu/footer */
-#MainMenu, footer { visibility:hidden; }
+/* Hide only the top Streamlit toolbar/search bar */
+[data-testid="stToolbar"] {
+  display: none !important;
+}
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+  background: #1a1a2e;
+  width: 220px !important;
+  padding-top: 1rem;
+}
+[data-testid="stSidebar"] img {
+  width: 100% !important;
+  margin-bottom: 1rem;
+}
+.sidebar-title {
+  color: #fff;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+/* Main area background */
+[data-testid="stAppViewContainer"] {
+  background: #0f0f13;
+}
+/* Card style */
+.card {
+  background: #1e1e2d;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin: 1rem 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+/* Button style */
+.stButton>button {
+  background-color: #e94e77;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+}
+/* Hide default Streamlit menu & footer */
+#MainMenu, footer {
+  visibility: hidden;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # — STATE INIT —
-if "page" not in st.session_state: st.session_state.page = "Login"
-if "user" not in st.session_state: st.session_state.user = None
+if "page" not in st.session_state:
+    st.session_state.page = "Login"
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-# — SIDEBAR NAV —
+# — SIDEBAR NAVIGATION —
 st.sidebar.image("hourglass_logo.png")
 st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
-menu = ["Login","Calculator","Chat Helper","History","Settings","Logout"]
+menu = ["Login", "Calculator", "Chat Helper", "History", "Settings", "Logout"]
 choice = st.sidebar.radio("Navigation", menu, index=menu.index(st.session_state.page))
 st.session_state.page = choice
 
@@ -91,7 +118,7 @@ if st.session_state.page == "Login" and st.session_state.user is None:
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# — FORCE LOGIN —
+# — FORCE LOGIN FOR OTHER PAGES —
 if st.session_state.page != "Login" and st.session_state.user is None:
     st.warning("Please log in first.")
     st.stop()
@@ -106,7 +133,7 @@ prof = supabase.table("user_life_expectancy")\
 
 if prof is None and st.session_state.page != "Login":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.header("Welcome! What's your name?")
+    st.header("Welcome! What’s your name?")
     fn = st.text_input("First name", key="profile_name")
     if st.button("Save Name"):
         supabase.table("user_life_expectancy").insert({
@@ -120,7 +147,7 @@ if prof is None and st.session_state.page != "Login":
 
 first_name = prof["first_name"]
 
-# — UTILITY CARD WRAPPER —
+# — CARD WRAPPER —
 def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
@@ -137,8 +164,7 @@ if st.session_state.page == "Calculator":
         if st.button("Compute"):
             try:
                 data = requests.get(
-                    f"http://api.worldbank.org/v2/country/{country}"
-                    "/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
+                    f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
                 ).json()
                 base = next((i["value"] for i in data[1] if i["value"]), 75)
             except:
@@ -150,14 +176,14 @@ if st.session_state.page == "Calculator":
             rem_s = int(rem_y * 31536000)
             st.success(f"⏳ {rem_y:.2f} years — {rem_s:,} seconds")
             supabase.table("user_life_expectancy").upsert({
-                "user_email": email,
-                "first_name": first_name,
-                "age": age,
-                "country_code": country,
-                "lifestyle": json.dumps({"smoke": smoke, "exercise": exer}),
-                "expectancy_years": float(final),
+                "user_email":        email,
+                "first_name":        first_name,
+                "age":               age,
+                "country_code":      country,
+                "lifestyle":         json.dumps({"smoke": smoke, "exercise": exer}),
+                "expectancy_years":  float(final),
                 "remaining_seconds": rem_s,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at":        datetime.utcnow().isoformat()
             }, on_conflict="user_email").execute()
     card(f"Hello {first_name}, estimate your time left", ui_calc)
 
