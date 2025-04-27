@@ -11,7 +11,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# — PAGE CONFIGURATION —
+# — PAGE CONFIG —
 st.set_page_config(
     page_title="SandGrains",
     page_icon="⏳",
@@ -19,7 +19,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# — AUTHENTICATION HELPER —
+# — SIDEBAR: Logo + (Auth durumuna göre) Menü —
+st.sidebar.image("hourglass_logo.png", width=80)
+if "user" in st.session_state and st.session_state.user:
+    page = st.sidebar.radio("Menu", ["Home", "Profile", "History", "Settings", "Logout"])
+else:
+    page = None
+
+# — AUTH HELPER: login veya signup —
 def login_or_signup(email, password):
     try:
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -27,12 +34,9 @@ def login_or_signup(email, password):
         supabase.auth.sign_up({"email": email, "password": password})
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
 
-# — INITIAL LOGIN FLOW —
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-if st.session_state.user is None:
-    st.markdown("# SandGrains ⏳")
+# — LOGIN FLOW —
+if "user" not in st.session_state or not st.session_state.user:
+    st.header("SandGrains ⏳")
     st.write("Free life-expectancy calculator. Enter your email & password.")
     email = st.text_input("Email address")
     password = st.text_input("Password (≥9 chars)", type="password")
@@ -43,7 +47,7 @@ if st.session_state.user is None:
             st.error("Password must be at least 9 characters.")
         else:
             res = login_or_signup(email, password)
-            if res.user:
+            if getattr(res, "user", None):
                 st.session_state.user = res.user
                 st.experimental_rerun()
             else:
@@ -52,14 +56,14 @@ if st.session_state.user is None:
 
 # — ENSURE PROFILE RECORD EXISTS —
 user_email = st.session_state.user.email
-profile = (
+profile_resp = (
     supabase.table("user_life_expectancy")
     .select("first_name,last_name")
     .eq("user_email", user_email)
     .maybe_single()
     .execute()
-    .data
 )
+profile = profile_resp.data
 
 if not profile:
     st.header("Welcome! What’s your name?")
@@ -79,24 +83,21 @@ if not profile:
 first_name = profile["first_name"]
 last_name  = profile["last_name"]
 
-# — SIDEBAR MENU —
-st.sidebar.image("hourglass_logo.png", width=80)
-page = st.sidebar.radio("Menu", ["Home", "Profile", "History", "Settings", "Logout"])
-
-# — LOGOUT HANDLER —
+# — HANDLE LOGOUT —
 if page == "Logout":
-    st.session_state.clear()
+    for key in ["user"]:
+        st.session_state.pop(key, None)
     st.experimental_rerun()
 
-# — PAGE: HOME —  
-if page == "Home":
+# — PAGE: HOME —
+if page == "Home" or page is None:
     st.header(f"Hi {first_name}, estimate your time left ⏳")
     left, right = st.columns([2,3])
     with left:
         age = st.number_input("Your Age", 1, 120, 30)
         country = st.text_input("Country Code (US, TR, DE…)", "US").upper()
-        smoking = st.selectbox("Smoking habits", ["never", "former", "current"])
-        exercise = st.selectbox("Exercise frequency", ["regular", "occasional", "none"])
+        smoking = st.selectbox("Smoking habits", ["never","former","current"])
+        exercise = st.selectbox("Exercise frequency", ["regular","occasional","none"])
         if st.button("Calculate & Save"):
             # fetch base expectancy
             try:
@@ -134,7 +135,7 @@ if page == "Home":
             use_column_width=True
         )
 
-# — PAGE: PROFILE —  
+# — PAGE: PROFILE —
 elif page == "Profile":
     st.header("Your Profile")
     c1, c2 = st.columns(2)
@@ -151,7 +152,7 @@ elif page == "Profile":
             st.success("Profile updated.")
             st.experimental_rerun()
 
-# — PAGE: HISTORY —  
+# — PAGE: HISTORY —
 elif page == "History":
     st.header("Your Calculation History")
     rows = (
@@ -168,11 +169,10 @@ elif page == "History":
         st.dataframe(df[["updated_at","expectancy_years","remaining_seconds"]])
         st.line_chart(df.set_index("updated_at")["remaining_seconds"])
     else:
-        st.info("No history found. Try a calculation on Home.")
+        st.info("No history yet. Do a calculation on Home.")
 
-# — PAGE: SETTINGS —  
+# — PAGE: SETTINGS —
 elif page == "Settings":
     st.header("Settings")
     theme = st.radio("Theme", ["Dark","Light"], index=0)
     st.write("To switch theme, use your browser/OS setting.")
-
