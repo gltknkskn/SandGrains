@@ -105,7 +105,7 @@ if st.session_state.page == "Login" and st.session_state.user is None:
     st.write("Free life-expectancy calculator. Sign in or sign up below.")
 
     # card around inputs only
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    #st.markdown("<div class='card'>", unsafe_allow_html=True)
     email = st.text_input("Email", key="login_email")
     pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
     if st.button("Sign In / Up"):
