@@ -18,7 +18,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# — GLOBAL STYLES —  
+# — GLOBAL STYLES —
 st.markdown("""
 <style>
 /* Hide Streamlit’s top toolbar & header/search bar */
@@ -101,9 +101,11 @@ def attempt_auth(email, pwd):
 
 # — LOGIN SCREEN —
 if st.session_state.page == "Login" and st.session_state.user is None:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.header("Login")
     st.write("Free life-expectancy calculator. Sign in or sign up below.")
+
+    # card around inputs only
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     email = st.text_input("Email", key="login_email")
     pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
     if st.button("Sign In / Up"):
@@ -209,7 +211,7 @@ elif st.session_state.page == "History":
         if rows:
             df = pd.DataFrame(rows)
             df["updated_at"] = pd.to_datetime(df["updated_at"])
-            st.line_chart(df.set_index("updated_at")["remaining_seconds"])
+            st.line_chart(df.set_index("updated_at")["remaining_seconds"])  
         else:
             st.info("No history yet.")
     card("⏳ Your History", ui_hist)
