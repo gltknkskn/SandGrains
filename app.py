@@ -19,11 +19,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# — SIDEBAR — always show logo + menu
-st.sidebar.image("hourglass_logo.png", width=120)
-page = st.sidebar.radio("Navigation", ["Login", "Home", "Profile", "History", "Settings", "Logout"])
+# — SIDEBAR STYLES: büyük logo + arkaplan —
+st.markdown(
+    """
+    <style>
+    /* Sidebar tümüyle hourglass arkaplanı */
+    [data-testid="stSidebar"] > div:first-child {
+        background-image: url('hourglass_logo.png');
+        background-position: center 20px;
+        background-repeat: no-repeat;
+        background-size: 200px;
+    }
+    /* Menü öğelerini aşağıya itmek için üst padding */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
+        margin-top: 250px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# — AUTH HELPER —
+# — SIDEBAR: Menü maddeleri —
+page = st.sidebar.radio(
+    "Navigation",
+    ["Login", "Home", "Profile", "History", "Settings", "Logout"]
+)
+
+# — AUTH HELPERS —
 def login_or_signup(email, password):
     try:
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -57,27 +79,23 @@ if page == "Login":
                 st.error("Login/Signup failed.")
     st.stop()
 
-# For all other pages besides Login/Logout, require auth
+# — AUTH GUARD FOR OTHER PAGES —
 if "user" not in st.session_state or not st.session_state.user:
-    # if not logged-in and tries another page → force back to login
     st.sidebar.error("Please log in first")
     st.experimental_rerun()
 
-# at this point the user is authenticated
 user_email = st.session_state.user.email
 
-# — Ensure profile record —
-profile_resp = (
+# — ENSURE PROFILE EXISTS —
+prof = (
     supabase.table("user_life_expectancy")
     .select("first_name,last_name")
     .eq("user_email", user_email)
     .maybe_single()
     .execute()
+    .data
 )
-profile = profile_resp.data
-
-# if first-time, ask name and then reload
-if not profile:
+if not prof:
     st.header("Welcome! What’s your name?")
     fn = st.text_input("First name")
     ln = st.text_input("Last name")
@@ -88,14 +106,14 @@ if not profile:
             "last_name": ln,
             "updated_at": datetime.utcnow().isoformat()
         }).execute()
-        st.success("Thanks! Name saved.")
+        st.success("Name saved.")
         st.experimental_rerun()
     st.stop()
 
-first_name = profile["first_name"]
-last_name  = profile["last_name"]
+first_name = prof["first_name"]
+last_name  = prof["last_name"]
 
-# — HOME PAGE —
+# — HOME —
 if page == "Home":
     st.header(f"Hi {first_name}, estimate your time left ⏳")
     left, right = st.columns([2,3])
@@ -105,7 +123,6 @@ if page == "Home":
         smoking = st.selectbox("Smoking habits", ["never","former","current"])
         exercise = st.selectbox("Exercise frequency", ["regular","occasional","none"])
         if st.button("Calculate & Save"):
-            # fetch base expectancy
             try:
                 r = requests.get(
                     f"http://api.worldbank.org/v2/country/{country}"
@@ -120,7 +137,6 @@ if page == "Home":
             rem_y = final - age
             rem_s = int(rem_y * 31536000)
             st.success(f"Remaining life: {rem_y:.2f} years ({rem_s:,} sec)")
-            # upsert record
             supabase.table("user_life_expectancy").upsert({
                 "user_email": user_email,
                 "first_name": first_name,
@@ -141,7 +157,7 @@ if page == "Home":
             use_column_width=True
         )
 
-# — PROFILE PAGE —
+# — PROFILE —
 elif page == "Profile":
     st.header("Your Profile")
     c1, c2 = st.columns(2)
@@ -158,7 +174,7 @@ elif page == "Profile":
             st.success("Profile updated.")
             st.experimental_rerun()
 
-# — HISTORY PAGE —
+# — HISTORY —
 elif page == "History":
     st.header("Your Calculation History")
     rows = (
@@ -177,7 +193,7 @@ elif page == "History":
     else:
         st.info("No history yet. Do a calculation on Home.")
 
-# — SETTINGS PAGE —
+# — SETTINGS —
 elif page == "Settings":
     st.header("Settings")
     theme = st.radio("Theme", ["Dark","Light"], index=0)
