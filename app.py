@@ -19,33 +19,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# — SIDEBAR STYLES: büyük logo + arkaplan —
-st.markdown(
-    """
-    <style>
-    /* Sidebar tümüyle hourglass arkaplanı */
-    [data-testid="stSidebar"] > div:first-child {
-        background-image: url('hourglass_logo.png');
-        background-position: center 20px;
-        background-repeat: no-repeat;
-        background-size: 200px;
-    }
-    /* Menü öğelerini aşağıya itmek için üst padding */
-    [data-testid="stSidebar"] .streamlit-expanderHeader {
-        margin-top: 250px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# — SIDEBAR: Menü maddeleri —
+# — SIDEBAR: LOCAL LOGO + MENU —
+st.sidebar.image("hourglass_logo.png", width=200)
 page = st.sidebar.radio(
     "Navigation",
     ["Login", "Home", "Profile", "History", "Settings", "Logout"]
 )
 
-# — AUTH HELPERS —
+# — AUTH HELPER —
 def login_or_signup(email, password):
     try:
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -73,13 +54,13 @@ if page == "Login":
             res = login_or_signup(email, password)
             if getattr(res, "user", None):
                 st.session_state.user = res.user
-                st.success("Logged in! Redirecting to Home...")
+                st.success("Logged in! Redirecting…")
                 st.experimental_rerun()
             else:
                 st.error("Login/Signup failed.")
     st.stop()
 
-# — AUTH GUARD FOR OTHER PAGES —
+# — GUARD: MUST BE LOGGED IN FOR OTHER PAGES —
 if "user" not in st.session_state or not st.session_state.user:
     st.sidebar.error("Please log in first")
     st.experimental_rerun()
@@ -113,7 +94,7 @@ if not prof:
 first_name = prof["first_name"]
 last_name  = prof["last_name"]
 
-# — HOME —
+# — HOME PAGE —
 if page == "Home":
     st.header(f"Hi {first_name}, estimate your time left ⏳")
     left, right = st.columns([2,3])
@@ -157,7 +138,7 @@ if page == "Home":
             use_column_width=True
         )
 
-# — PROFILE —
+# — PROFILE PAGE —
 elif page == "Profile":
     st.header("Your Profile")
     c1, c2 = st.columns(2)
@@ -174,7 +155,7 @@ elif page == "Profile":
             st.success("Profile updated.")
             st.experimental_rerun()
 
-# — HISTORY —
+# — HISTORY PAGE —
 elif page == "History":
     st.header("Your Calculation History")
     rows = (
@@ -193,7 +174,7 @@ elif page == "History":
     else:
         st.info("No history yet. Do a calculation on Home.")
 
-# — SETTINGS —
+# — SETTINGS PAGE —
 elif page == "Settings":
     st.header("Settings")
     theme = st.radio("Theme", ["Dark","Light"], index=0)
