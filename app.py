@@ -19,14 +19,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# — SIDEBAR: Logo + (Auth durumuna göre) Menü —
-st.sidebar.image("hourglass_logo.png", width=80)
-if "user" in st.session_state and st.session_state.user:
-    page = st.sidebar.radio("Menu", ["Home", "Profile", "History", "Settings", "Logout"])
-else:
-    page = None
+# — SIDEBAR — always show logo + menu
+st.sidebar.image("hourglass_logo.png", width=120)
+page = st.sidebar.radio("Navigation", ["Login", "Home", "Profile", "History", "Settings", "Logout"])
 
-# — AUTH HELPER: login veya signup —
+# — AUTH HELPER —
 def login_or_signup(email, password):
     try:
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -34,8 +31,13 @@ def login_or_signup(email, password):
         supabase.auth.sign_up({"email": email, "password": password})
         return supabase.auth.sign_in_with_password({"email": email, "password": password})
 
-# — LOGIN FLOW —
-if "user" not in st.session_state or not st.session_state.user:
+# — LOGOUT —
+if page == "Logout":
+    st.session_state.clear()
+    st.experimental_rerun()
+
+# — LOGIN PAGE —
+if page == "Login":
     st.header("SandGrains ⏳")
     st.write("Free life-expectancy calculator. Enter your email & password.")
     email = st.text_input("Email address")
@@ -49,13 +51,22 @@ if "user" not in st.session_state or not st.session_state.user:
             res = login_or_signup(email, password)
             if getattr(res, "user", None):
                 st.session_state.user = res.user
+                st.success("Logged in! Redirecting to Home...")
                 st.experimental_rerun()
             else:
                 st.error("Login/Signup failed.")
     st.stop()
 
-# — ENSURE PROFILE RECORD EXISTS —
+# For all other pages besides Login/Logout, require auth
+if "user" not in st.session_state or not st.session_state.user:
+    # if not logged-in and tries another page → force back to login
+    st.sidebar.error("Please log in first")
+    st.experimental_rerun()
+
+# at this point the user is authenticated
 user_email = st.session_state.user.email
+
+# — Ensure profile record —
 profile_resp = (
     supabase.table("user_life_expectancy")
     .select("first_name,last_name")
@@ -65,6 +76,7 @@ profile_resp = (
 )
 profile = profile_resp.data
 
+# if first-time, ask name and then reload
 if not profile:
     st.header("Welcome! What’s your name?")
     fn = st.text_input("First name")
@@ -83,14 +95,8 @@ if not profile:
 first_name = profile["first_name"]
 last_name  = profile["last_name"]
 
-# — HANDLE LOGOUT —
-if page == "Logout":
-    for key in ["user"]:
-        st.session_state.pop(key, None)
-    st.experimental_rerun()
-
-# — PAGE: HOME —
-if page == "Home" or page is None:
+# — HOME PAGE —
+if page == "Home":
     st.header(f"Hi {first_name}, estimate your time left ⏳")
     left, right = st.columns([2,3])
     with left:
@@ -135,7 +141,7 @@ if page == "Home" or page is None:
             use_column_width=True
         )
 
-# — PAGE: PROFILE —
+# — PROFILE PAGE —
 elif page == "Profile":
     st.header("Your Profile")
     c1, c2 = st.columns(2)
@@ -152,7 +158,7 @@ elif page == "Profile":
             st.success("Profile updated.")
             st.experimental_rerun()
 
-# — PAGE: HISTORY —
+# — HISTORY PAGE —
 elif page == "History":
     st.header("Your Calculation History")
     rows = (
@@ -171,7 +177,7 @@ elif page == "History":
     else:
         st.info("No history yet. Do a calculation on Home.")
 
-# — PAGE: SETTINGS —
+# — SETTINGS PAGE —
 elif page == "Settings":
     st.header("Settings")
     theme = st.radio("Theme", ["Dark","Light"], index=0)
