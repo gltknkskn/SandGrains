@@ -21,65 +21,35 @@ st.set_page_config(
 # — GLOBAL STYLES —
 st.markdown("""
 <style>
-/* Hide Streamlit’s top toolbar & header/search bar */
-[data-testid="stToolbar"],
-[data-testid="stHeader"] {
-  display: none !important;
-}
-/* Sidebar styling */
+/* Sidebar */
 [data-testid="stSidebar"] {
-  background: #1a1a2e;
-  width: 220px !important;
-  padding-top: 1rem;
+  background: #1a1a2e; width:220px!important; padding-top:1rem;
 }
 [data-testid="stSidebar"] img {
-  width: 100% !important;
-  margin-bottom: 1rem;
+  width:100%!important; margin-bottom:1rem;
 }
 .sidebar-title {
-  color: #fff;
-  text-align: center;
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
+  color:#fff; text-align:center; font-size:1.25rem; font-weight:bold; margin-bottom:1rem;
 }
-/* Main background */
-[data-testid="stAppViewContainer"] {
-  background: #0f0f13;
-}
-/* Card style */
-.card {
-  background: #1e1e2d;
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin: 1rem 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-/* Button style */
-.stButton>button {
-  background-color: #e94e77;
-  color: white;
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: 8px;
-}
-/* Hide default menu & footer */
-#MainMenu, footer {
-  visibility: hidden;
-}
+/* Main bg */
+[data-testid="stAppViewContainer"] { background:#0f0f13 }
+/* Cards */
+.card {background:#1e1e2d; padding:1.5rem; border-radius:12px; margin:1rem 0; box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+/* Buttons */
+.stButton>button {background:#e94e77; color:#fff; padding:.6rem 1.2rem; border:none; border-radius:8px;}
+/* Hide Streamlit menu/footer */
+#MainMenu, footer {visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 # — STATE INIT —
-if "page" not in st.session_state:
-    st.session_state.page = "Login"
-if "user" not in st.session_state:
-    st.session_state.user = None
+if "page" not in st.session_state: st.session_state.page = "Login"
+if "user" not in st.session_state: st.session_state.user = None
 
 # — SIDEBAR NAV —
 st.sidebar.image("hourglass_logo.png")
 st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
-menu = ["Login", "Calculator", "Chat Helper", "History", "Settings", "Logout"]
+menu = ["Login","Calculator","Chat Helper","History","Settings","Logout"]
 choice = st.sidebar.radio("Navigation", menu, index=menu.index(st.session_state.page))
 st.session_state.page = choice
 
@@ -91,25 +61,23 @@ if st.session_state.page == "Logout":
 # — AUTH HELPERS —
 def attempt_auth(email, pwd):
     try:
-        return supabase.auth.sign_in_with_password({"email": email, "password": pwd})
+        return supabase.auth.sign_in_with_password({"email":email,"password":pwd})
     except:
         try:
-            supabase.auth.sign_up({"email": email, "password": pwd})
+            supabase.auth.sign_up({"email":email,"password":pwd})
         except:
             return None
-        return supabase.auth.sign_in_with_password({"email": email, "password": pwd})
+        return supabase.auth.sign_in_with_password({"email":email,"password":pwd})
 
 # — LOGIN SCREEN —
-if st.session_state.page == "Login" and st.session_state.user is None:
+if st.session_state.page=="Login" and st.session_state.user is None:
     st.header("Login")
     st.write("Free life-expectancy calculator. Sign in or sign up below.")
-
-    # card around inputs only
-    #st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     email = st.text_input("Email", key="login_email")
     pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
     if st.button("Sign In / Up"):
-        if email and len(pwd) >= 9:
+        if email and len(pwd)>=9:
             res = attempt_auth(email, pwd)
             if res and getattr(res, "user", None):
                 st.session_state.user = res.user
@@ -121,29 +89,24 @@ if st.session_state.page == "Login" and st.session_state.user is None:
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# — FORCE LOGIN FOR OTHER PAGES —
-if st.session_state.page != "Login" and st.session_state.user is None:
+# — FORCE LOGIN —
+if st.session_state.page!="Login" and st.session_state.user is None:
     st.warning("Please log in first.")
     st.stop()
 
-# — PROFILE SETUP —
 email = st.session_state.user.email
-# PROFILE SETUP — fetch user profile
+
+# — PROFILE SETUP —
 resp = supabase.table("user_life_expectancy")\
     .select("first_name")\
     .eq("user_email", email)\
     .maybe_single()\
     .execute()
-# support both attribute and dict-style
-prof = getattr(resp, 'data', None) or (resp.get('data') if isinstance(resp, dict) else None)("user_life_expectancy")\
-    .select("first_name")\
-    .eq("user_email", email)\
-    .maybe_single()\
-    .execute().data
+prof = getattr(resp, 'data', resp.get('data') if isinstance(resp, dict) else None)
 
-if prof is None and st.session_state.page != "Login":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+if prof is None and st.session_state.page!="Login":
     st.header("Welcome! What’s your name?")
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     fn = st.text_input("First name", key="profile_name")
     if st.button("Save Name"):
         supabase.table("user_life_expectancy").insert({
@@ -157,7 +120,7 @@ if prof is None and st.session_state.page != "Login":
 
 first_name = prof["first_name"]
 
-# — UTILITY TO WRAP CARDS —
+# — UTILITY CARD —
 def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
@@ -165,7 +128,7 @@ def card(title, fn):
     st.markdown("</div>", unsafe_allow_html=True)
 
 # — CALCULATOR —
-if st.session_state.page == "Calculator":
+if st.session_state.page=="Calculator":
     def ui_calc():
         age     = st.number_input("Age", 1, 120, 30)
         country = st.text_input("Country Code (US,TR,DE…)", "US", key="calc_country").upper()
@@ -174,7 +137,8 @@ if st.session_state.page == "Calculator":
         if st.button("Compute"):
             try:
                 data = requests.get(
-                    f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
+                    f"http://api.worldbank.org/v2/country/{country}"
+                    "/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
                 ).json()
                 base = next((i["value"] for i in data[1] if i["value"]), 75)
             except:
@@ -186,45 +150,47 @@ if st.session_state.page == "Calculator":
             rem_s = int(rem_y * 31536000)
             st.success(f"⏳ {rem_y:.2f} years — {rem_s:,} seconds")
             supabase.table("user_life_expectancy").upsert({
-                "user_email":        email,
-                "first_name":        first_name,
-                "age":               age,
-                "country_code":      country,
-                "lifestyle":         json.dumps({"smoke": smoke, "exercise": exer}),
-                "expectancy_years":  float(final),
+                "user_email": email,
+                "first_name": first_name,
+                "age": age,
+                "country_code": country,
+                "lifestyle": json.dumps({"smoke":smoke,"exercise":exer}),
+                "expectancy_years": float(final),
                 "remaining_seconds": rem_s,
-                "updated_at":        datetime.utcnow().isoformat()
+                "updated_at": datetime.utcnow().isoformat()
             }, on_conflict="user_email").execute()
     card(f"Hello {first_name}, estimate your time left", ui_calc)
 
 # — CHAT HELPER —
-elif st.session_state.page == "Chat Helper":
+elif st.session_state.page=="Chat Helper":
     def ui_chat():
         q = st.text_input("Ask a quick tip…", key="chat_q")
         if st.button("Send"):
             if "exercise" in q.lower():
-                st.info("Brisk walking 30 min/day adds ~3 years!")
+                st.info("Brisk walking 30min/day adds ~3 years!")
             else:
                 st.info("Eat fruits, veggies & whole grains.")
     card("💬 Quick Health Tips", ui_chat)
 
 # — HISTORY —
-elif st.session_state.page == "History":
+elif st.session_state.page=="History":
     def ui_hist():
-        rows = supabase.table("user_life_expectancy")\
+        resp = supabase.table("user_life_expectancy")\
             .select("updated_at,remaining_seconds")\
             .eq("user_email", email)\
-            .order("updated_at", asc=True).execute().data
+            .order("updated_at", asc=True)\
+            .execute()
+        rows = getattr(resp, 'data', resp.get('data') if isinstance(resp, dict) else None)
         if rows:
             df = pd.DataFrame(rows)
             df["updated_at"] = pd.to_datetime(df["updated_at"])
-            st.line_chart(df.set_index("updated_at")["remaining_seconds"])  
+            st.line_chart(df.set_index("updated_at")["remaining_seconds"])
         else:
             st.info("No history yet.")
     card("⏳ Your History", ui_hist)
 
 # — SETTINGS —
-elif st.session_state.page == "Settings":
+elif st.session_state.page=="Settings":
     def ui_set():
         if st.button("Clear History"):
             supabase.table("user_life_expectancy")\
