@@ -18,11 +18,12 @@ st.set_page_config(
     layout="wide",
 )
 
-# — GLOBAL STYLES —
+# — GLOBAL STYLES —  
 st.markdown("""
 <style>
-/* Hide only the top Streamlit toolbar/search bar */
-[data-testid="stToolbar"] {
+/* Hide Streamlit’s top toolbar & header/search bar */
+[data-testid="stToolbar"],
+[data-testid="stHeader"] {
   display: none !important;
 }
 /* Sidebar styling */
@@ -42,7 +43,7 @@ st.markdown("""
   font-weight: bold;
   margin-bottom: 1rem;
 }
-/* Main area background */
+/* Main background */
 [data-testid="stAppViewContainer"] {
   background: #0f0f13;
 }
@@ -62,7 +63,7 @@ st.markdown("""
   border: none;
   border-radius: 8px;
 }
-/* Hide default Streamlit menu & footer */
+/* Hide default menu & footer */
 #MainMenu, footer {
   visibility: hidden;
 }
@@ -75,7 +76,7 @@ if "page" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# — SIDEBAR NAVIGATION —
+# — SIDEBAR NAV —
 st.sidebar.image("hourglass_logo.png")
 st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
 menu = ["Login", "Calculator", "Chat Helper", "History", "Settings", "Logout"]
@@ -147,7 +148,7 @@ if prof is None and st.session_state.page != "Login":
 
 first_name = prof["first_name"]
 
-# — CARD WRAPPER —
+# — UTILITY TO WRAP CARDS —
 def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
@@ -193,7 +194,7 @@ elif st.session_state.page == "Chat Helper":
         q = st.text_input("Ask a quick tip…", key="chat_q")
         if st.button("Send"):
             if "exercise" in q.lower():
-                st.info("Brisk walking 30min/day adds ~3 years!")
+                st.info("Brisk walking 30 min/day adds ~3 years!")
             else:
                 st.info("Eat fruits, veggies & whole grains.")
     card("💬 Quick Health Tips", ui_chat)
