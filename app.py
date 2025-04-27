@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import requests, json, os
 from datetime import datetime
@@ -99,39 +100,31 @@ if st.session_state.page != "Login" and st.session_state.user is None:
     st.warning("Please log in first.")
     st.stop()
 
-# retrieve profile
+# fetch profile if exists
 email = st.session_state.user.email
 prof = supabase.table("user_life_expectancy")\
-    .select("first_name")\
+    .select("first_name,last_name")\
     .eq("user_email", email)\
     .maybe_single()\
     .execute().data
 
-# — PROFILE SETUP —
-if prof is None and st.session_state.page != "Login":
-    def ui_profile():
-        fn = st.text_input("First name", key="profile_name")
-        if st.button("Save Name"):
-            supabase.table("user_life_expectancy").insert({
-                "user_id":    st.session_state.user.id,
-                "user_email": email,
-                "first_name": fn,
-                "updated_at": datetime.utcnow().isoformat()
-            }).execute()
-            st.session_state.page = "Calculator"
-    card("Welcome! What’s your name?", ui_profile)
-    st.stop()
-
-first_name = prof["first_name"]
-
-# — CALCULATOR —
+# — CALCULATOR (with profile creation inline) —
 if st.session_state.page == "Calculator":
     def ui_calc():
+        # if new user, ask names here
+        if prof is None:
+            fn = st.text_input("First name", key="calc_fn")
+            ln = st.text_input("Last name", key="calc_ln")
+        else:
+            fn, ln = prof['first_name'], prof['last_name']
+
         age     = st.number_input("Age", 1, 120, 30)
         country = st.text_input("Country Code (US, TR, DE…)", "US", key="calc_country").upper()
         smoke   = st.selectbox("Smoking", ["never","former","current"], key="calc_smoke")
         exer    = st.selectbox("Exercise", ["regular","occasional","none"], key="calc_exer")
-        if st.button("Compute"):
+
+        if st.button("Compute & Save"):
+            # calculate
             try:
                 data = requests.get(
                     f"http://api.worldbank.org/v2/country/{country}"
@@ -146,18 +139,25 @@ if st.session_state.page == "Calculator":
             rem_y = final - age
             rem_s = int(rem_y * 31536000)
             st.success(f"⏳ {rem_y:.2f} years — {rem_s:,} seconds")
-            supabase.table("user_life_expectancy").upsert({
+
+            # upsert all fields at once
+            payload = {
                 "user_id":           st.session_state.user.id,
                 "user_email":        email,
-                "first_name":        first_name,
+                "first_name":        fn,
+                "last_name":         ln,
                 "age":               age,
                 "country_code":      country,
                 "lifestyle":         json.dumps({"smoke":smoke,"exercise":exer}),
                 "expectancy_years":  float(final),
                 "remaining_seconds": rem_s,
                 "updated_at":        datetime.utcnow().isoformat()
-            }, on_conflict="user_email").execute()
-    card(f"Hello {first_name}, estimate your time left", ui_calc)
+            }
+            supabase.table("user_life_expectancy")
+                .upsert(payload, on_conflict="user_email")
+                .execute()
+
+    card("Estimate your time left", ui_calc)
 
 # — CHAT HELPER —
 elif st.session_state.page == "Chat Helper":
@@ -193,3 +193,4 @@ elif st.session_state.page == "Settings":
                 .delete().eq("user_email", email).execute()
             st.success("History cleared.")
     card("⚙️ Settings", ui_set)
+```
