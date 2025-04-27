@@ -18,27 +18,29 @@ st.set_page_config(
     layout="wide",
 )
 
-# — GLOBAL STYLES —
+# — HIDE STREAMLIT UI ELEMENTS & GLOBAL STYLES —
 st.markdown("""
 <style>
+/* 1) Hide the top toolbar/search bar */
+[data-testid="stToolbar"] { display: none !important; }
+/* 2) Remove header placeholders */
+header, header + div { visibility: hidden; height: 0 !important; margin:0; padding:0; }
+/* 3) Hide any text_input with empty aria-label */
+input[aria-label=""] { display: none !important; }
+/* and collapse its container */
+input[aria-label=""] ~ div { height:0 !important; margin:0; padding:0; }
 /* Sidebar */
-[data-testid="stSidebar"] {
-  background: #1a1a2e; width:220px!important; padding-top:1rem;
-}
-[data-testid="stSidebar"] img {
-  width:100%!important; margin-bottom:1rem;
-}
-.sidebar-title {
-  color:#fff; text-align:center; font-size:1.25rem; font-weight:bold; margin-bottom:1rem;
-}
-/* Main bg */
-[data-testid="stAppViewContainer"] { background:#0f0f13 }
+[data-testid="stSidebar"] { background: #1a1a2e; width:220px!important; padding-top:1rem; }
+[data-testid="stSidebar"] img { width:100%!important; margin-bottom:1rem; }
+.sidebar-title { color:#fff; text-align:center; font-size:1.25rem; font-weight:bold; margin-bottom:1rem; }
+/* Main background */
+[data-testid="stAppViewContainer"] { background:#0f0f13; }
 /* Cards */
-.card {background:#1e1e2d; padding:1.5rem; border-radius:12px; margin:1rem 0; box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.card { background:#1e1e2d; padding:1.5rem; border-radius:12px; margin:1rem 0; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
 /* Buttons */
-.stButton>button {background:#e94e77; color:#fff; padding:.6rem 1.2rem; border:none; border-radius:8px;}
+.stButton>button { background:#e94e77; color:#fff; padding:.6rem 1.2rem; border:none; border-radius:8px; }
 /* Hide Streamlit menu/footer */
-#MainMenu, footer {visibility:hidden;}
+#MainMenu, footer { visibility:hidden; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -61,13 +63,13 @@ if st.session_state.page == "Logout":
 # — AUTH HELPERS —
 def attempt_auth(email, pwd):
     try:
-        return supabase.auth.sign_in_with_password({"email":email,"password":pwd})
+        return supabase.auth.sign_in_with_password({"email": email, "password": pwd})
     except:
         try:
-            supabase.auth.sign_up({"email":email,"password":pwd})
+            supabase.auth.sign_up({"email": email, "password": pwd})
         except:
             return None
-        return supabase.auth.sign_in_with_password({"email":email,"password":pwd})
+        return supabase.auth.sign_in_with_password({"email": email, "password": pwd})
 
 # — LOGIN SCREEN —
 if st.session_state.page == "Login" and st.session_state.user is None:
@@ -77,7 +79,7 @@ if st.session_state.page == "Login" and st.session_state.user is None:
     email = st.text_input("Email", key="login_email")
     pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
     if st.button("Sign In / Up"):
-        if email and len(pwd)>=9:
+        if email and len(pwd) >= 9:
             res = attempt_auth(email, pwd)
             if res and getattr(res, "user", None):
                 st.session_state.user = res.user
@@ -118,7 +120,7 @@ if prof is None and st.session_state.page != "Login":
 
 first_name = prof["first_name"]
 
-# — UTILITY CARD —
+# — UTILITY CARD WRAPPER —
 def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
@@ -152,7 +154,7 @@ if st.session_state.page == "Calculator":
                 "first_name": first_name,
                 "age": age,
                 "country_code": country,
-                "lifestyle": json.dumps({"smoke":smoke,"exercise":exer}),
+                "lifestyle": json.dumps({"smoke": smoke, "exercise": exer}),
                 "expectancy_years": float(final),
                 "remaining_seconds": rem_s,
                 "updated_at": datetime.utcnow().isoformat()
