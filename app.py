@@ -128,7 +128,14 @@ if st.session_state.page != "Login" and st.session_state.user is None:
 
 # — PROFILE SETUP —
 email = st.session_state.user.email
-prof = supabase.table("user_life_expectancy")\
+# PROFILE SETUP — fetch user profile
+resp = supabase.table("user_life_expectancy")\
+    .select("first_name")\
+    .eq("user_email", email)\
+    .maybe_single()\
+    .execute()
+# support both attribute and dict-style
+prof = getattr(resp, 'data', None) or (resp.get('data') if isinstance(resp, dict) else None)("user_life_expectancy")\
     .select("first_name")\
     .eq("user_email", email)\
     .maybe_single()\
