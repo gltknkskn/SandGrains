@@ -69,69 +69,66 @@ def attempt_auth(email, pwd):
             return None
         return supabase.auth.sign_in_with_password({"email":email,"password":pwd})
 
-# — LOGIN SCREEN —
-if st.session_state.page=="Login" and st.session_state.user is None:
-    st.header("Login")
-    st.write("Free life-expectancy calculator. Sign in or sign up below.")
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    email = st.text_input("Email", key="login_email")
-    pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
-    if st.button("Sign In / Up"):
-        if email and len(pwd)>=9:
-            res = attempt_auth(email, pwd)
-            if res and getattr(res, "user", None):
-                st.session_state.user = res.user
-                st.session_state.page = "Calculator"
-            else:
-                st.error("Authentication failed or weak password.")
-        else:
-            st.error("Enter a valid email & ≥9-char password.")
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# — FORCE LOGIN —
-if st.session_state.page!="Login" and st.session_state.user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
-email = st.session_state.user.email
-
-# — PROFILE SETUP —
-resp = supabase.table("user_life_expectancy")\
-    .select("first_name")\
-    .eq("user_email", email)\
-    .maybe_single()\
-    .execute()
-prof = getattr(resp, 'data', resp.get('data') if isinstance(resp, dict) else None)
-
-if prof is None and st.session_state.page!="Login":
-    st.header("Welcome! What’s your name?")
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    fn = st.text_input("First name", key="profile_name")
-    if st.button("Save Name"):
-        supabase.table("user_life_expectancy").insert({
-            "user_email": email,
-            "first_name": fn,
-            "updated_at": datetime.utcnow().isoformat()
-        }).execute()
-        st.session_state.page = "Calculator"
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-first_name = prof["first_name"]
-
-# — UTILITY CARD —
+# — UTILITY CARD WRAPPER —
 def card(title, fn):
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader(title)
     fn()
     st.markdown("</div>", unsafe_allow_html=True)
 
+# — LOGIN SCREEN —
+if st.session_state.page == "Login" and st.session_state.user is None:
+    def ui_login():
+        email = st.text_input("Email", key="login_email")
+        pwd   = st.text_input("Password (≥9 chars)", type="password", key="login_pwd")
+        if st.button("Sign In / Up"):
+            if email and len(pwd)>=9:
+                res = attempt_auth(email, pwd)
+                if res and getattr(res, "user", None):
+                    st.session_state.user = res.user
+                    st.session_state.page = "Calculator"
+                else:
+                    st.error("Authentication failed or weak password.")
+            else:
+                st.error("Enter a valid email & ≥9-char password.")
+    card("Login", ui_login)
+    st.stop()
+
+# — FORCE LOGIN —
+if st.session_state.page != "Login" and st.session_state.user is None:
+    st.warning("Please log in first.")
+    st.stop()
+
+# retrieve profile
+email = st.session_state.user.email
+prof = supabase.table("user_life_expectancy")\
+    .select("first_name")\
+    .eq("user_email", email)\
+    .maybe_single()\
+    .execute().data
+
+# — PROFILE SETUP —
+if prof is None and st.session_state.page != "Login":
+    def ui_profile():
+        fn = st.text_input("First name", key="profile_name")
+        if st.button("Save Name"):
+            supabase.table("user_life_expectancy").insert({
+                "user_id":    st.session_state.user.id,
+                "user_email": email,
+                "first_name": fn,
+                "updated_at": datetime.utcnow().isoformat()
+            }).execute()
+            st.session_state.page = "Calculator"
+    card("Welcome! What’s your name?", ui_profile)
+    st.stop()
+
+first_name = prof["first_name"]
+
 # — CALCULATOR —
-if st.session_state.page=="Calculator":
+if st.session_state.page == "Calculator":
     def ui_calc():
         age     = st.number_input("Age", 1, 120, 30)
-        country = st.text_input("Country Code (US,TR,DE…)", "US", key="calc_country").upper()
+        country = st.text_input("Country Code (US, TR, DE…)", "US", key="calc_country").upper()
         smoke   = st.selectbox("Smoking", ["never","former","current"], key="calc_smoke")
         exer    = st.selectbox("Exercise", ["regular","occasional","none"], key="calc_exer")
         if st.button("Compute"):
@@ -150,37 +147,36 @@ if st.session_state.page=="Calculator":
             rem_s = int(rem_y * 31536000)
             st.success(f"⏳ {rem_y:.2f} years — {rem_s:,} seconds")
             supabase.table("user_life_expectancy").upsert({
-                "user_email": email,
-                "first_name": first_name,
-                "age": age,
-                "country_code": country,
-                "lifestyle": json.dumps({"smoke":smoke,"exercise":exer}),
-                "expectancy_years": float(final),
+                "user_id":           st.session_state.user.id,
+                "user_email":        email,
+                "first_name":        first_name,
+                "age":               age,
+                "country_code":      country,
+                "lifestyle":         json.dumps({"smoke":smoke,"exercise":exer}),
+                "expectancy_years":  float(final),
                 "remaining_seconds": rem_s,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at":        datetime.utcnow().isoformat()
             }, on_conflict="user_email").execute()
     card(f"Hello {first_name}, estimate your time left", ui_calc)
 
 # — CHAT HELPER —
-elif st.session_state.page=="Chat Helper":
+elif st.session_state.page == "Chat Helper":
     def ui_chat():
         q = st.text_input("Ask a quick tip…", key="chat_q")
         if st.button("Send"):
             if "exercise" in q.lower():
-                st.info("Brisk walking 30min/day adds ~3 years!")
+                st.info("Brisk walking 30 min/day adds ~3 years!")
             else:
                 st.info("Eat fruits, veggies & whole grains.")
     card("💬 Quick Health Tips", ui_chat)
 
 # — HISTORY —
-elif st.session_state.page=="History":
+elif st.session_state.page == "History":
     def ui_hist():
-        resp = supabase.table("user_life_expectancy")\
+        rows = supabase.table("user_life_expectancy")\
             .select("updated_at,remaining_seconds")\
             .eq("user_email", email)\
-            .order("updated_at", asc=True)\
-            .execute()
-        rows = getattr(resp, 'data', resp.get('data') if isinstance(resp, dict) else None)
+            .order("updated_at", asc=True).execute().data
         if rows:
             df = pd.DataFrame(rows)
             df["updated_at"] = pd.to_datetime(df["updated_at"])
@@ -190,7 +186,7 @@ elif st.session_state.page=="History":
     card("⏳ Your History", ui_hist)
 
 # — SETTINGS —
-elif st.session_state.page=="Settings":
+elif st.session_state.page == "Settings":
     def ui_set():
         if st.button("Clear History"):
             supabase.table("user_life_expectancy")\
