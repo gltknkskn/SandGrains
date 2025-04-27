@@ -1,5 +1,7 @@
 import streamlit as st
-import requests, json, os
+import requests
+import json
+import os
 from datetime import datetime
 from supabase import create_client
 from dotenv import load_dotenv
@@ -22,9 +24,9 @@ st.set_page_config(
 # — GLOBAL CSS —
 st.markdown("""
 <style>
-/* Sidebar gradient & width */
+/* Sidebar gradient & fixed width */
 [data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #1a1a2e 0%, #26273a 100%);
+  background: linear-gradient(180deg,#1a1a2e 0%,#26273a 100%);
   padding-top: 1rem;
   width: 220px !important;
 }
@@ -32,12 +34,12 @@ st.markdown("""
 [data-testid="stSidebar"] img {
   width: 100% !important;
   height: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
-/* Title under logo */
+/* Sidebar title under logo */
 .sidebar-title {
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: bold;
   text-align: center;
   margin-bottom: 1rem;
@@ -63,11 +65,11 @@ st.markdown("""
   border-radius: 8px;
 }
 /* Hide default menu/footer */
-#MainMenu, footer {visibility: hidden;}
+#MainMenu, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# — SIDEBAR —
+# — SIDEBAR: logo and title —
 st.sidebar.image("hourglass_logo.png")
 st.sidebar.markdown("<div class='sidebar-title'>SandGrains</div>", unsafe_allow_html=True)
 page = st.sidebar.radio(
@@ -82,12 +84,26 @@ if page == "Logout":
     st.experimental_rerun()
 
 # — AUTH HELPERS —
-def login_or_signup(email, password):
+def login_with_signup(email, pwd):
+    # attempt sign in first
     try:
-        return supabase.auth.sign_in_with_password({"email": email, "password": password})
-    except:
-        supabase.auth.sign_up({"email": email, "password": password})
-        return supabase.auth.sign_in_with_password({"email": email, "password": password})
+        res = supabase.auth.sign_in_with_password({"email": email, "password": pwd})
+        return res
+    except Exception:
+        # if sign in fails, try sign up
+        try:
+            supabase.auth.sign_up({"email": email, "password": pwd})
+        except Exception:
+            # likely weak password
+            st.error("Password too weak or policy violation. Please choose a stronger password.")
+            return None
+        # after signup, sign in
+        try:
+            res2 = supabase.auth.sign_in_with_password({"email": email, "password": pwd})
+            return res2
+        except Exception:
+            st.error("Signup succeeded but login failed.")
+            return None
 
 # — AUTH FLOW —
 if "user" not in st.session_state or not st.session_state.user:
@@ -98,30 +114,27 @@ if "user" not in st.session_state or not st.session_state.user:
     pwd = st.text_input("Password (≥9 chars)", type="password")
     if st.button("Sign In / Up"):
         if email and len(pwd) >= 9:
-            res = login_or_signup(email, pwd)
-            if getattr(res, "user", None):
-                st.session_state.user = res.user
+            result = login_with_signup(email, pwd)
+            if result and getattr(result, "user", None):
+                st.session_state.user = result.user
                 st.success("Authenticated! Redirecting…")
                 st.experimental_rerun()
+            elif result is None:
+                # error already shown
+                pass
             else:
-                st.error("Authentication failed.")
+                st.error("Authentication failed. Please verify your credentials.")
         else:
-            st.error("Enter a valid email and ≥9-char password.")
+            st.error("Enter a valid email and a password of at least 9 characters.")
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
+# user must be authenticated at this point
 user_email = st.session_state.user.email
 
 # — ENSURE PROFILE EXISTS —
-prof = (
-    supabase.table("user_life_expectancy")
-    .select("first_name")
-    .eq("user_email", user_email)
-    .maybe_single()
-    .execute()
-    .data
-)
-if not prof:
+profiling = supabase.table("user_life_expectancy").select("first_name").eq("user_email", user_email).maybe_single().execute().data
+if not profiling:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.header("Welcome! What’s your name?")
     fn = st.text_input("First name")
@@ -136,7 +149,7 @@ if not prof:
     st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-first_name = prof["first_name"]
+first_name = profiling["first_name"]
 
 # — CARD WRAPPER —
 def card(title, content_fn):
@@ -147,21 +160,20 @@ def card(title, content_fn):
 
 # — CALCULATOR —
 if page == "Calculator":
-    def calc_ui():
+    def calc_box():
         age = st.number_input("Age", 1, 120, 30)
         country = st.text_input("Country Code (US,TR,DE…)", "US").upper()
-        smoke = st.selectbox("Smoking", ["never","former","current"])
-        exer = st.selectbox("Exercise", ["regular","occasional","none"])
+        smoke = st.selectbox("Smoking", ["never", "former", "current"])
+        exer = st.selectbox("Exercise", ["regular", "occasional", "none"])
         if st.button("Compute"):
             try:
-                data = requests.get(
+                w = requests.get(
                     f"http://api.worldbank.org/v2/country/{country}/indicator/SP.DYN.LE00.IN?format=json&per_page=100"
                 ).json()
-                base = next((i["value"] for i in data[1] if i["value"]), 75)
+                base = next((i["value"] for i in w[1] if i["value"]), 75)
             except:
                 base = 75
-            score = (2 if smoke=="never" else -5 if smoke=="current" else 0) \
-                  + (3 if exer=="regular" else -3 if exer=="none" else 0)
+            score = (2 if smoke == "never" else -5 if smoke == "current" else 0) + (3 if exer == "regular" else -3 if exer == "none" else 0)
             final = base + score
             rem_y = final - age
             rem_s = int(rem_y * 31536000)
@@ -171,44 +183,40 @@ if page == "Calculator":
                 "first_name": first_name,
                 "age": age,
                 "country_code": country,
-                "lifestyle": json.dumps({"smoke":smoke,"exercise":exer}),
+                "lifestyle": json.dumps({"smoke": smoke, "exercise": exer}),
                 "expectancy_years": float(final),
                 "remaining_seconds": rem_s,
                 "updated_at": datetime.utcnow().isoformat()
             }, on_conflict="user_email").execute()
-    card(f"Hello {first_name}, calculate your time left", calc_ui)
+    card(f"Hello {first_name}, estimate your time left", calc_box)
 
 # — CHAT HELPER —
 elif page == "Chat Helper":
-    def chat_ui():
+    def chat_box():
         prompt = st.text_input("Ask for a quick tip (e.g. best exercise tip?)")
         if st.button("Send"):
             if "exercise" in prompt.lower():
                 st.info("Try brisk walking 30 min/day — adds ~3 years!")
             else:
                 st.info("Eat more fruits, veggies & whole grains daily.")
-    card("💬 Quick Health Tips", chat_ui)
+    card("💬 Quick Health Tips", chat_box)
 
 # — HISTORY —
 elif page == "History":
-    def hist_ui():
-        rows = supabase.table("user_life_expectancy")\
-            .select("updated_at,remaining_seconds")\
-            .eq("user_email", user_email)\
-            .order("updated_at", asc=True).execute().data
+    def history_box():
+        rows = supabase.table("user_life_expectancy").select("updated_at,remaining_seconds").eq("user_email", user_email).order("updated_at", asc=True).execute().data
         if rows:
             df = pd.DataFrame(rows)
             df["updated_at"] = pd.to_datetime(df["updated_at"])
             st.line_chart(df.set_index("updated_at")["remaining_seconds"])
         else:
             st.info("No history yet.")
-    card("⏳ Your History", hist_ui)
+    card("⏳ Your History", history_box)
 
 # — SETTINGS —
 elif page == "Settings":
-    def set_ui():
+    def settings_box():
         if st.button("Clear History"):
-            supabase.table("user_life_expectancy")\
-                .delete().eq("user_email", user_email).execute()
+            supabase.table("user_life_expectancy").delete().eq("user_email", user_email).execute()
             st.success("History cleared.")
-    card("⚙️ Settings", set_ui)
+    card("⚙️ Settings", settings_box)
